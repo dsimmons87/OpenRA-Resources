@@ -8,7 +8,7 @@ from openra.models import Maps, Rating
 
 
 @csrf_exempt
-def jRating(request, arg):
+def jRating(request, item_type):
 
     def jRatingError(arData):
         response = StreamingHttpResponse(json.dumps(arData), content_type="application/javascript")
@@ -17,7 +17,7 @@ def jRating(request, arg):
     if request.method == 'POST':
         if request.POST.get('action', "").strip() == "rating":
             arData = {}
-            arData['item_type'] = arg
+            arData['item_type'] = item_type
             arData['item_id'] = request.POST.get('idBox', "")
             arData['rate_by_user'] = request.POST.get('rate', "")
             arData['user_id'] = request.user.id

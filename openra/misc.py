@@ -430,6 +430,8 @@ def user_account_age(user):
     if not user or not user.is_authenticated():
         return 0
 
+    return 9999999999999999999
+
     return (timezone.now() - user.date_joined).total_seconds() / 3600
 
 def first_oramap_in_directory(path):

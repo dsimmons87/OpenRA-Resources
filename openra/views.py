@@ -4,7 +4,7 @@ import datetime
 import shutil
 import random
 import json
-import cgi
+import html
 import base64
 from urllib.parse import urlencode
 import urllib.request
@@ -47,7 +47,7 @@ def index(request):
 
 def loginView(request):
 
-    if request.user.is_authenticated():
+    if request.user.is_authenticated:
         return HttpResponseRedirect('/')
 
     errors = []
@@ -90,7 +90,7 @@ def loginView(request):
 
 def logoutView(request):
 
-    if not request.user.is_authenticated():
+    if not request.user.is_authenticated:
         return HttpResponseRedirect('/')
 
     if request.method == "POST":
@@ -168,7 +168,7 @@ def search(request, arg=""):
 
 
 def ControlPanel(request, page=1, filter=""):
-    if not request.user.is_authenticated():
+    if not request.user.is_authenticated:
         return HttpResponseRedirect('/login/')
     perPage = 16
     slice_start = perPage*int(page)-perPage
@@ -350,37 +350,37 @@ def maps_duplicates(request, maphash, page=1):
     return StreamingHttpResponse(template.render(template_args, request))
 
 
-def displayMap(request, arg):
+def displayMap(request, map_id):
     if request.method == 'POST':
         if request.POST.get('reportReason', "").strip() != "":
-            checkReports = Reports.objects.filter(user_id=request.user.id, ex_id=arg, ex_name='maps')
+            checkReports = Reports.objects.filter(user_id=request.user.id, ex_id=map_id, ex_name='maps')
             if not checkReports:
-                checkReports = Reports.objects.filter(ex_id=arg, ex_name='maps')
+                checkReports = Reports.objects.filter(ex_id=map_id, ex_name='maps')
                 infringement = request.POST.get('infringement', False)
                 if infringement == "true":
                     infringement = True
                 transac = Reports(
                     user_id=request.user.id,
                     reason=request.POST['reportReason'].strip(),
-                    ex_id=arg,
+                    ex_id=map_id,
                     ex_name='maps',
                     infringement=infringement,
                     posted=timezone.now(),
                 )
                 transac.save()
-                Maps.objects.filter(id=arg).update(amount_reports=F('amount_reports')+1)
-                misc.send_email_to_admin_OnReport({'addr': request.META['HTTP_HOST']+'/maps/'+arg, 'user_id': request.user.id, 'reason': request.POST['reportReason'].strip(), 'infringement': infringement})
-                misc.send_email_to_user_OnReport({'addr': request.META['HTTP_HOST']+'/maps/'+arg, 'owner_id': Maps.objects.get(id=arg).user_id, 'reason': request.POST['reportReason'].strip(), 'resource_type': 'map'})
-                return HttpResponseRedirect('/maps/'+arg)
+                Maps.objects.filter(id=map_id).update(amount_reports=F('amount_reports')+1)
+                misc.send_email_to_admin_OnReport({'addr': request.META['HTTP_HOST']+'/maps/'+str(map_id), 'user_id': request.user.id, 'reason': request.POST['reportReason'].strip(), 'infringement': infringement})
+                misc.send_email_to_user_OnReport({'addr': request.META['HTTP_HOST']+'/maps/'+str(map_id), 'owner_id': Maps.objects.get(id=map_id).user_id, 'reason': request.POST['reportReason'].strip(), 'resource_type': 'map'})
+                return HttpResponseRedirect('/maps/'+str(map_id))
         elif request.POST.get('mapInfo', False) is not False:
             if request.user.is_superuser:
-                Maps.objects.filter(id=arg).update(info=request.POST['mapInfo'].strip())
+                Maps.objects.filter(id=map_id).update(info=request.POST['mapInfo'].strip())
             else:
-                Maps.objects.filter(id=arg, user_id=request.user.id).update(info=request.POST['mapInfo'].strip())
-            return HttpResponseRedirect('/maps/'+arg)
+                Maps.objects.filter(id=map_id, user_id=request.user.id).update(info=request.POST['mapInfo'].strip())
+            return HttpResponseRedirect('/maps/'+map_id)
         elif request.FILES.get('screenshot', False) is not False:
 
-                handlers.addScreenshot(request, arg, 'map')
+                handlers.addScreenshot(request, map_id, 'map')
 
         elif request.POST.get('comment', "") != "":
             account_age = misc.user_account_age(request.user)
@@ -396,7 +396,7 @@ def displayMap(request, arg):
 
             transac = Comments(
                 item_type='maps',
-                item_id=int(arg),
+                item_id=int(map_id),
                 user=request.user,
                 content=request.POST['comment'].strip(),
                 posted=timezone.now(),
@@ -404,29 +404,29 @@ def displayMap(request, arg):
             )
             transac.save()
 
-            commented_map_obj = Maps.objects.get(id=arg)
+            commented_map_obj = Maps.objects.get(id=map_id)
             if commented_map_obj.user != request.user:
-                misc.send_email_to_user_OnComment('maps', arg, commented_map_obj.user.email, info="owner")
+                misc.send_email_to_user_OnComment('maps', map_id, commented_map_obj.user.email, info="owner")
 
-            comsObj = Comments.objects.filter(item_type='maps', item_id=arg, is_removed=False)
+            comsObj = Comments.objects.filter(item_type='maps', item_id=map_id, is_removed=False)
             if comsObj:
                 for com in comsObj:
                     if com.user != request.user and com.user != commented_map_obj.user:
 
-                        unsubObj = UnsubscribeComments.objects.filter(item_type='maps', item_id=arg, user=com.user)
+                        unsubObj = UnsubscribeComments.objects.filter(item_type='maps', item_id=map_id, user=com.user)
 
                         if not unsubObj:
-                            misc.send_email_to_user_OnComment('maps', arg, com.user.email)
+                            misc.send_email_to_user_OnComment('maps', map_id, com.user.email)
 
-            return HttpResponseRedirect('/maps/' + arg + '/')
+            return HttpResponseRedirect('/maps/' + map_id + '/')
 
-    path = os.path.join(settings.BASE_DIR, __name__.split('.')[0], 'data', 'maps', arg)
+    path = os.path.join(settings.BASE_DIR, __name__.split('.')[0], 'data', 'maps', str(map_id))
     oramap_filename = misc.first_oramap_in_directory(path)
     if not oramap_filename:
         return HttpResponseRedirect('/')
 
     try:
-        mapObject = Maps.objects.get(id=arg)
+        mapObject = Maps.objects.get(id=map_id)
     except:
         return HttpResponseRedirect('/')
 
@@ -471,7 +471,7 @@ def displayMap(request, arg):
     if duplicates:
         duplicates = True
 
-    screenshots = Screenshots.objects.filter(ex_name="maps", ex_id=arg)
+    screenshots = Screenshots.objects.filter(ex_name="maps", ex_id=map_id)
 
     try:
         played_counter = urllib.request.urlopen("http://master.openra.net/map_stats?hash=%s" % mapObject.map_hash).read().decode()
@@ -486,7 +486,7 @@ def displayMap(request, arg):
     ratesAmount = Rating.objects.filter(ex_id=mapObject.id, ex_name='map')
     ratesAmount = len(ratesAmount)
 
-    comments = misc.get_comments_for_all_revisions(request, 'maps', arg)
+    comments = misc.get_comments_for_all_revisions(request, 'maps', map_id)
 
     # showing upgrade map button
     show_upgrade_map_button = True
@@ -520,7 +520,7 @@ def displayMap(request, arg):
         'title': ' - Map details - ' + mapObject.title,
         'map': mapObject,
         'userid': userObject,
-        'arg': arg,
+        'arg': map_id,
         'license': license,
         'icons': icons,
         'reports': reports,
@@ -676,9 +676,9 @@ def serveScreenshot(request, itemid, itemname=""):
     return response
 
 
-def serveMinimap(request, arg):
+def serveMinimap(request, map_id):
     minimap = ""
-    path = os.path.join(settings.BASE_DIR, __name__.split('.')[0], 'data', 'maps', arg)
+    path = os.path.join(settings.BASE_DIR, __name__.split('.')[0], 'data', 'maps', str(map_id))
     try:
         contentDir = os.listdir(os.path.join(path, 'content'))
     except:
@@ -703,9 +703,9 @@ def serveMinimap(request, arg):
     return response
 
 
-def serveOramap(request, arg, sync=""):
+def serveOramap(request, map_id, sync=""):
     oramap = ""
-    path = os.path.join(settings.BASE_DIR, __name__.split('.')[0], 'data', 'maps', arg)
+    path = os.path.join(settings.BASE_DIR, __name__.split('.')[0], 'data', 'maps', str(map_id))
     try:
         mapDir = os.listdir(path)
     except:
@@ -715,21 +715,21 @@ def serveOramap(request, arg, sync=""):
             oramap = filename
             break
     if oramap == "":
-        return HttpResponseRedirect('/maps/'+arg)
+        return HttpResponseRedirect('/maps/'+str(map_id))
     else:
         serveOramap = os.path.join(path, oramap)
         if sync == "sync":
-                oramap = arg + ".oramap"
+                oramap = str(map_id) + ".oramap"
         response = StreamingHttpResponse(open(serveOramap, 'rb'), content_type='application/zip')
         response['Content-Disposition'] = 'attachment; filename = %s' % oramap
         response['Content-Length'] = os.path.getsize(serveOramap)
-        Maps.objects.filter(id=arg).update(downloaded=F('downloaded')+1)
+        Maps.objects.filter(id=map_id).update(downloaded=F('downloaded')+1)
         return response
 
 
-def serveYaml(request, arg):
-    path = os.path.join(settings.BASE_DIR, __name__.split('.')[0], 'data', 'maps', arg, 'content', 'map.yaml')
-    response = StreamingHttpResponse(cgi.escape(open(path).read(), quote=None), content_type='application/plain')
+def serveYaml(request, map_id):
+    path = os.path.join(settings.BASE_DIR, __name__.split('.')[0], 'data', 'maps', str(map_id), 'content', 'map.yaml')
+    response = StreamingHttpResponse(html.escape(open(path).read(), quote=None), content_type='application/plain')
     response['Content-Disposition'] = 'attachment; filename = map.yaml'
     return response
 
@@ -756,7 +756,7 @@ def serveYamlRules(request, arg):
     else:
         HttpResponseRedirect('/')
 
-    response = StreamingHttpResponse(cgi.escape(result, quote=None), content_type='application/plain')
+    response = StreamingHttpResponse(html.escape(result, quote=None), content_type='application/plain')
     response['Content-Disposition'] = 'attachment; filename = advanced.%s' % arg
     return response
 
@@ -772,13 +772,13 @@ def serveLua(request, arg, name):
                 break
     if fname == "":
         raise Http404
-    response = StreamingHttpResponse(cgi.escape(open(os.path.join(path, fname)).read(), quote=None), content_type='application/plain')
+    response = StreamingHttpResponse(html.escape(open(os.path.join(path, fname)).read(), quote=None), content_type='application/plain')
     response['Content-Disposition'] = 'attachment; filename = %s' % fname
     return response
 
 
 def uploadMap(request, previous_rev=0):
-    if not request.user.is_authenticated():
+    if not request.user.is_authenticated:
         return HttpResponseRedirect('/maps/')
 
     account_age = misc.user_account_age(request.user)
@@ -830,17 +830,17 @@ def uploadMap(request, previous_rev=0):
     return StreamingHttpResponse(template.render(template_args, request))
 
 
-def DeleteMap(request, arg):
-    if not request.user.is_authenticated():
+def DeleteMap(request, map_id):
+    if not request.user.is_authenticated:
         return HttpResponseRedirect('/maps/')
     try:
-        mapObject = Maps.objects.get(id=arg)
+        mapObject = Maps.objects.get(id=map_id)
     except:
         return HttpResponseRedirect('/maps/')
     mapTitle = mapObject.title
     mapAuthor = mapObject.author
     if mapObject.user_id == request.user.id or request.user.is_superuser:
-        path = os.path.join(settings.BASE_DIR, __name__.split('.')[0], 'data', 'maps', arg)
+        path = os.path.join(settings.BASE_DIR, __name__.split('.')[0], 'data', 'maps', str(map_id))
         try:
             shutil.rmtree(path)
         except:
@@ -868,7 +868,7 @@ def DeleteMap(request, arg):
 
 
 def SetDownloadingStatus(request, arg):
-    if not request.user.is_authenticated():
+    if not request.user.is_authenticated:
         return HttpResponseRedirect('/maps/'+arg)
     try:
         mapObject = Maps.objects.get(id=arg)
@@ -930,12 +930,13 @@ def maps_revisions(request, arg, page=1):
     return StreamingHttpResponse(template.render(template_args, request))
 
 
-def cancelReport(request, name, arg):
+def cancelReport(request, name, id):
     if not request.user.is_authenticated:
         return HttpResponseRedirect('/')
-    Reports.objects.filter(user_id=request.user.id, ex_id=arg, ex_name=name).delete()
-    Maps.objects.filter(id=arg).update(amount_reports=F('amount_reports')-1)
-    return HttpResponseRedirect('/'+name+'/'+arg)
+    Reports.objects.filter(user_id=request.user.id, ex_id=id, ex_name=name).delete()
+    if name == 'maps':
+        Maps.objects.filter(id=id).update(amount_reports=F('amount_reports')-1)
+    return HttpResponseRedirect('/'+name+'/'+str(id))
 
 
 def screenshots(request):
@@ -1022,7 +1023,7 @@ def handle404(request):
 
 
 def profile(request):
-    if not request.user.is_authenticated():
+    if not request.user.is_authenticated:
         return HttpResponseRedirect('/')
     mapObject = Maps.objects.filter(user_id=request.user.id, next_rev=0)
     amountMaps = len(mapObject)

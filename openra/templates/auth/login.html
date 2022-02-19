@@ -73,7 +73,8 @@
 				<ul id="socialaccounts_providers">
 					 {% for provider in socialaccount_providers %}
 						<li><a title="{{provider.name}}" class="socialaccount_provider {{provider.id}}" 
-							 href="{% provider_login_url provider.id process=process %}"><img src="/static/images/{{provider.id}}.svg" alt="{{provider.name}}"></a>
+							 {% comment %} href="{% provider_login_url provider.id process=process %}"><img src="/static/images/{{provider.id}}.svg" alt="{{provider.name}}"></a> {% endcomment %}
+						> IMPLEMENT </a>
 						</li>
 					{% endfor %}
 				</ul>
