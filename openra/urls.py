@@ -79,29 +79,29 @@ urlpatterns = [
     path('accounts/profile/', views.profile, name='profile'),
 
 
-    # path(r'^news/feed.rss?$', views.feed, name='feed'),
-    # path(r'^search/?$', views.search, name='search'),
-    # path(r'^search/(?P<arg>.+?)/?$', views.search, name='search'),
+    path('news/feed.rss', views.feed, name='feed'),
+    path('search/', views.search, name='search'),
+    path('search/<str:search_request>/', views.search, name='search'),
 
     path('panel/', views.ControlPanel, name='ControlPanel'),
     path('panel/mymaps/', views.ControlPanel, name='ControlPanel'),
     path('panel/mymaps/page/<int:page>/', views.ControlPanel, name='maps_paged'),
 
-    # path(r'^faq/?$', views.faq, name='faq'),
-    # path(r'^contacts/?$', views.contacts, name='contacts'),
-    # path(r'^contacts/sent/?$', views.contacts_sent, name='contacts_sent'),
+    path('faq/', views.faq, name='faq'),
+    path('contacts/', views.contacts, name='contacts'),
+    path('contacts/sent/', views.contacts_sent, name='contacts_sent'),
 
-    # path(r'^map/', include([
-    #     path(r'^hash/(?P<map_hashes>[^/]+)/yaml/?$', api.map_info_from_hashes, {'yaml': True}, name='mapAPI'),
-    #     path(r'^hash/(?P<map_hashes>[^/]+)/?$', api.map_info_from_hashes, name='mapAPI'),
-    #     path(r'^id/(?P<map_ids>[^/]+)/yaml/?$', api.map_info_from_ids, {'yaml': True}, name='mapAPI'),
-    #     path(r'^id/(?P<map_ids>[^/]+)/?$', api.map_info_from_ids, name='mapAPI'),
-    #     path(r'^url/(?P<map_hashes>[^/]+)/yaml/?$', api.map_urlinfo_from_hashes, {'yaml': True}, name='mapAPI'),
-    #     path(r'^url/(?P<map_hashes>[^/]+)/?$', api.map_urlinfo_from_hashes, name='mapAPI'),
-    #     path(r'^lastmap/yaml/?$', api.latest_map_info, {'yaml': True}, name='mapAPI'),
-    #     path(r'^lastmap/?$', api.latest_map_info, name='mapAPI'),
-    #     path(r'^(?P<map_hash>\w+)/?$', api.download_map, name='mapAPI_download'),
-    # ])),
+    path('map/', include([
+        path('hash/<str:map_hashes>/yaml/', api.map_info_from_hashes, {'yaml': True}, name='mapAPI'),
+        path('hash/<str:map_hashes>/', api.map_info_from_hashes, name='mapAPI'),
+        path('id/<str:map_ids>/yaml/', api.map_info_from_ids, {'yaml': True}, name='mapAPI'),
+        path('id/<str:map_ids>/', api.map_info_from_ids, name='mapAPI'),
+        path('url/<str:map_hashes>/yaml/', api.map_urlinfo_from_hashes, {'yaml': True}, name='mapAPI'),
+        path('url/<str:map_hashes>/', api.map_urlinfo_from_hashes, name='mapAPI'),
+        path('lastmap/yaml/', api.latest_map_info, {'yaml': True}, name='mapAPI'),
+        path('lastmap/', api.latest_map_info, name='mapAPI'),
+        path('<str:map_hash>/', api.download_map, name='mapAPI_download'),
+    ])),
 
     path('favicon.ico', views.favicon, name='favicon'),
     path('robots.txt', views.robots, name='robots.txt'),

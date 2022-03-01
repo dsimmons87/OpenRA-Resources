@@ -123,17 +123,15 @@ def feed(request):
     return StreamingHttpResponse(template.render(template_args, request), content_type='text/xml')
 
 
-def search(request, arg=""):
+def search(request, search_request=""):
 
-    if not arg:
+    if not search_request:
         if request.method == 'POST':
             if request.POST.get('qsearch', "").strip() == "":
                 return HttpResponseRedirect('/')
             return HttpResponseRedirect('/search/' + request.POST.get('qsearch', "").strip())
         else:
             return HttpResponseRedirect('/')
-
-    search_request = arg
 
     global_search_request = {}
     global_search_request['maps'] = {'amount': 0, 'hash': None, 'title': None, 'info': None}
