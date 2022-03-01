@@ -34,10 +34,10 @@ urlpatterns = [
     path('maps/<int:map_id>/oramap/', views.serveOramap, name='serveOramap'),
     path('maps/<int:map_id>/oramap/<str:sync>/', views.serveOramap, name='serverSyncOramap'),
     path('maps/<int:map_id>/delete/', views.DeleteMap, name='DeleteMap'),
-    # path(r'^maps/(?P<arg>\d+)/setdownloadingstatus/?$', views.SetDownloadingStatus, name='SetDownloadingStatus'),
-    # path(r'^maps/(?P<arg>\d+)/add(?P<item>\w+)sc/?$', views.addScreenshot, name='addScreenshot'),
-    # path(r'^maps/(?P<arg>\d+)/revisions/?$', views.maps_revisions, name='maps_revisions'),
-    # path(r'^maps/(?P<arg>\d+)/revisions/page/(?P<page>\d+)/?$', views.maps_revisions, name='maps_revisions'),
+    path('maps/<int:map_id>/setdownloadingstatus/', views.SetDownloadingStatus, name='SetDownloadingStatus'),
+    path('maps/<int:id>/add<str:item>sc/', views.addScreenshot, name='addScreenshot'),
+    path('maps/<int:map_id>/revisions/', views.maps_revisions, name='maps_revisions'),
+    path('maps/<int:map_id>/revisions/page/<int:page>/', views.maps_revisions, name='maps_revisions'),
     # path(r'^maps/(?P<arg>\d+)/update/?$', views.updateMap, name='updateMap'),
     # path(r'^maps/(?P<arg>\d+)/update_logs/?$', views.updateMapLogs, name='updateMapLogs'),
     # path(r'^(?P<item_type>\w+)/(?P<arg>\d+)/unsubscribe/?$', views.unsubscribe_from_comments, name='Unsubscribe from comments to item'),
@@ -52,14 +52,12 @@ urlpatterns = [
     # path(r'^maps/(?P<arg>\d+)/rules/?$', views.serveYamlRules, name='printYamlRules'),
     # path(r'^maps/(?P<arg>\d+)/lua/(?P<name>[^/]+)/?$', views.serveLua, name='printLua'),
 
-    # path(r'^upload/map/?$', views.uploadMap, name='uploadMap'),
+    path('upload/map/', views.uploadMap, name='uploadMap'),
     # path(r'^upload/map/(?P<previous_rev>\d+)/?$', views.uploadMap, name='uploadMap'),
 
-
-    # path(r'^screenshots/?$', views.screenshots, name='screenshots'),
-    # path(r'^screenshots/(?P<itemid>\d+)/?$', views.serveScreenshot, name='serveScreenshot'),
-    # path(r'^screenshots/(?P<itemid>\d+)/delete/?$', views.deleteScreenshot, name='deleteScreenshot'),
-    # path(r'^screenshots/(?P<itemid>\d+)/(?P<itemname>\w+)/?$', views.serveScreenshot, name='serveScreenshot'),
+    path('screenshots/<int:screenshot_id>/', views.serveScreenshot, name='serveScreenshot'),
+    path('screenshots/<int:screenshot_id>/delete/', views.deleteScreenshot, name='deleteScreenshot'),
+    path('screenshots/<int:screenshot_id>/<str:itemname>/', views.serveScreenshot, name='serveScreenshot'),
 
     # path(r'^comments/?$', views.comments, name='comments'),
     # path(r'^comments/page/(?P<page>\d+)/?$', views.comments, name='comments_paged'),
@@ -78,18 +76,16 @@ urlpatterns = [
     path('logout/', views.logoutView, name='logoutView'),
 
     # path(r'^accounts/', include('allauth.urls')),
-    # path(r'^accounts/profile/?$', views.profile, name='profile'),
+    path('accounts/profile/', views.profile, name='profile'),
 
 
     # path(r'^news/feed.rss?$', views.feed, name='feed'),
     # path(r'^search/?$', views.search, name='search'),
     # path(r'^search/(?P<arg>.+?)/?$', views.search, name='search'),
 
-    # path(r'^panel/?$', views.ControlPanel, name='ControlPanel'),
-    # path(r'^panel/mymaps/?$', views.ControlPanel, name='ControlPanel'),
-    # path(r'^panel/mymaps/page/(?P<page>\d+)/?$', views.ControlPanel, name='maps_paged'),
-    # path(r'^panel/mymaps/page/(?P<page>\d+)/filter/(?P<filter>\w+)/?$', views.ControlPanel, name='maps_paged_filtered'),
-    # path(r'^panel/mymaps/filter/(?P<filter>\w+)/?$', views.ControlPanel, name='maps_filtered'),
+    path('panel/', views.ControlPanel, name='ControlPanel'),
+    path('panel/mymaps/', views.ControlPanel, name='ControlPanel'),
+    path('panel/mymaps/page/<int:page>/', views.ControlPanel, name='maps_paged'),
 
     # path(r'^faq/?$', views.faq, name='faq'),
     # path(r'^contacts/?$', views.contacts, name='contacts'),
@@ -107,8 +103,8 @@ urlpatterns = [
     #     path(r'^(?P<map_hash>\w+)/?$', api.download_map, name='mapAPI_download'),
     # ])),
 
-    # path(r'^favicon\.ico$', RedirectView.as_view(url='/static/favicon.ico')),
-    # path(r'^robots.txt$', views.robots, name='robots.txt'),
+    path('favicon.ico', views.favicon, name='favicon'),
+    path('robots.txt', views.robots, name='robots.txt'),
 
     path('ajax/jRating/<str:item_type>/', ajax.jRating, name='ajax.jRating'),
 

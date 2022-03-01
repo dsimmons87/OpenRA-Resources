@@ -11,6 +11,7 @@ import urllib.request
 
 from django.conf import settings
 from django.http import StreamingHttpResponse
+from django.shortcuts import redirect
 from django.template import loader
 from django.contrib.auth import authenticate, login, logout
 from django.http import HttpResponseRedirect, Http404
@@ -167,10 +168,10 @@ def search(request, arg=""):
     return StreamingHttpResponse(template.render(template_args, request))
 
 
-def ControlPanel(request, page=1, filter=""):
+def ControlPanel(request, page=1):
     if not request.user.is_authenticated:
         return HttpResponseRedirect('/login/')
-    perPage = 16
+    perPage = 4
     slice_start = perPage*int(page)-perPage
     slice_end = perPage*int(page)
     mapObject = Maps.objects.filter(user_id=request.user.id).filter(next_rev=0).order_by('-posted')
@@ -377,7 +378,7 @@ def displayMap(request, map_id):
                 Maps.objects.filter(id=map_id).update(info=request.POST['mapInfo'].strip())
             else:
                 Maps.objects.filter(id=map_id, user_id=request.user.id).update(info=request.POST['mapInfo'].strip())
-            return HttpResponseRedirect('/maps/'+map_id)
+            return HttpResponseRedirect('/maps/'+str(map_id))
         elif request.FILES.get('screenshot', False) is not False:
 
                 handlers.addScreenshot(request, map_id, 'map')
@@ -605,13 +606,13 @@ def updateMapLogs(request, arg):
     }
     return StreamingHttpResponse(template.render(template_args, request))
 
-def deleteScreenshot(request, itemid):
-    scObject = Screenshots.objects.filter(id=itemid)
+def deleteScreenshot(request, screenshot_id):
+    scObject = Screenshots.objects.filter(id=screenshot_id)
     if scObject:
         arg = str(scObject[0].ex_id)
         name = scObject[0].ex_name
         if request.user.is_superuser or scObject[0].user_id == request.user.id:
-            path = os.path.join(settings.BASE_DIR, __name__.split('.')[0], 'data', 'screenshots', itemid)
+            path = os.path.join(settings.BASE_DIR, __name__.split('.')[0], 'data', 'screenshots', str(screenshot_id))
             try:
                 shutil.rmtree(path)
             except:
@@ -651,9 +652,9 @@ def unsubscribe_from_comments(request, item_type, arg):
     return HttpResponseRedirect("/" + item_type + "/" + arg + "/")
 
 
-def serveScreenshot(request, itemid, itemname=""):
+def serveScreenshot(request, screenshot_id, itemname=""):
     image = ""
-    path = os.path.join(settings.BASE_DIR, __name__.split('.')[0], 'data', 'screenshots', itemid)
+    path = os.path.join(settings.BASE_DIR, __name__.split('.')[0], 'data', 'screenshots', str(screenshot_id))
     try:
         Dir = os.listdir(path)
     except:
@@ -867,51 +868,51 @@ def DeleteMap(request, map_id):
     return StreamingHttpResponse(template.render(template_args, request))
 
 
-def SetDownloadingStatus(request, arg):
+def SetDownloadingStatus(request, map_id):
     if not request.user.is_authenticated:
-        return HttpResponseRedirect('/maps/'+arg)
+        return HttpResponseRedirect('/maps/'+str(map_id))
     try:
-        mapObject = Maps.objects.get(id=arg)
+        mapObject = Maps.objects.get(id=map_id)
     except:
         return HttpResponseRedirect('/maps/')
     if mapObject.user_id == request.user.id or request.user.is_superuser:
         if mapObject.downloading:
-            Maps.objects.filter(id=arg).update(downloading=False)
+            Maps.objects.filter(id=map_id).update(downloading=False)
         else:
-            Maps.objects.filter(id=arg).update(downloading=True)
-    return HttpResponseRedirect('/maps/'+arg)
+            Maps.objects.filter(id=map_id).update(downloading=True)
+    return HttpResponseRedirect('/maps/'+str(map_id))
 
 
-def addScreenshot(request, arg, item):
+def addScreenshot(request, id, item):
     if item == 'map':
-        Object = Maps.objects.filter(id=arg)
+        Object = Maps.objects.filter(id=id)
     if not (Object[0].user_id == request.user.id or request.user.is_superuser):
         return StreamingHttpResponse("")
     template = loader.get_template('addScreenshotForm.html')
     template_args = {
         'request': request,
-        'arg': arg,
+        'arg': id,
     }
     return StreamingHttpResponse(template.render(template_args, request))
 
 
-def maps_revisions(request, arg, page=1):
+def maps_revisions(request, map_id, page=1):
     perPage = 20
     slice_start = perPage*int(page)-perPage
     slice_end = perPage*int(page)
 
     try:
-        tempObj = Maps.objects.get(id=arg)
+        tempObj = Maps.objects.get(id=map_id)
     except:
         return HttpResponseRedirect('/')
 
-    revisions = misc.all_revisions_for_map(arg)
+    revisions = misc.all_revisions_for_map(map_id)
     mapObject = Maps.objects.filter(id__in=revisions).order_by('-revision', '-posted')
     amount = len(mapObject)
     rowsRange = int(math.ceil(amount/float(perPage)))   # amount of rows
     mapObject = mapObject[slice_start:slice_end]
     if len(mapObject) == 0 and int(page) != 1:
-        return HttpResponseRedirect("/maps/%s/revisions/" % arg)
+        return HttpResponseRedirect("/maps/%s/revisions/" % map_id)
 
     comments = misc.count_comments_for_many(mapObject)
 
@@ -924,7 +925,7 @@ def maps_revisions(request, arg, page=1):
         'page': int(page),
         'range': [i+1 for i in range(rowsRange)],
         'amount': amount,
-        'arg': arg,
+        'arg': map_id,
         'comments': comments,
     }
     return StreamingHttpResponse(template.render(template_args, request))
@@ -937,16 +938,6 @@ def cancelReport(request, name, id):
     if name == 'maps':
         Maps.objects.filter(id=id).update(amount_reports=F('amount_reports')-1)
     return HttpResponseRedirect('/'+name+'/'+str(id))
-
-
-def screenshots(request):
-    template = loader.get_template('index.html')
-    template_args = {
-        'content': 'screenshots.html',
-        'request': request,
-        'title': ' - Screenshots',
-    }
-    return StreamingHttpResponse(template.render(template_args, request))
 
 
 def comments(request, page=1):
@@ -1108,3 +1099,6 @@ def robots(request):
         'request': request,
     }
     return StreamingHttpResponse(template.render(template_args, request), content_type='text/plain')
+
+def favicon(requets):
+    redirect('/static/favicon.ico')

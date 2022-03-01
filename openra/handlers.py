@@ -309,9 +309,9 @@ def process_update(item, parser=settings.OPENRA_VERSIONS[0]):
 
         return updated_item
 
-def addScreenshot(request, arg, item):
+def addScreenshot(request, id, item):
     if item == 'map':
-        Object = Maps.objects.filter(id=arg)
+        Object = Maps.objects.filter(id=id)
         if not Object:
             return False
         if not (Object[0].user_id == request.user.id or request.user.is_superuser):
@@ -336,7 +336,7 @@ def addScreenshot(request, arg, item):
 
     transac = Screenshots(
         user=Object[0].user,
-        ex_id=int(arg),
+        ex_id=int(id),
         ex_name=item+"s",
         posted=timezone.now(),
         map_preview=map_preview,
@@ -348,8 +348,8 @@ def addScreenshot(request, arg, item):
     if not os.path.exists(path):
         os.makedirs(path)
 
-    sc_full_name = os.path.join(path, arg + "." + mimetype.split('/')[1])
-    sc_mini_name = os.path.join(path, arg + "-mini." + mimetype.split('/')[1])
+    sc_full_name = os.path.join(path, str(id) + "." + mimetype.split('/')[1])
+    sc_mini_name = os.path.join(path, str(id) + "-mini." + mimetype.split('/')[1])
 
     shutil.move(tempname, sc_full_name)
 

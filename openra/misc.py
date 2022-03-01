@@ -224,14 +224,14 @@ def get_comments_for_all_revisions(request, item_type, item_id):
     return list(reversed(comments))
 
 
-def all_revisions_for_map(item_id):
+def all_revisions_for_map(map_id):
     # Seek back to root revision
     try:
         while True:
-            item = Maps.objects.get(id=item_id)
+            item = Maps.objects.get(id=map_id)
             if item.pre_rev == 0:
                 break
-            item_id = item.pre_rev
+            map_id = item.pre_rev
     # Don't crash on broken references
     # TODO: Fix the models so this won't happen!
     except ObjectDoesNotExist:
@@ -240,11 +240,11 @@ def all_revisions_for_map(item_id):
     # Seek forwards yielding revisions
     try:
         while True:
-            item = Maps.objects.get(id=item_id)
-            yield item_id
+            item = Maps.objects.get(id=map_id)
+            yield map_id
 
-            item_id = item.next_rev
-            if item_id == 0:
+            map_id = item.next_rev
+            if map_id == 0:
                 break
     except ObjectDoesNotExist:
         pass
@@ -427,7 +427,7 @@ def map_filter(request, mapObject):
 
 def user_account_age(user):
     """Returns the age of a user account in hours"""
-    if not user or not user.is_authenticated():
+    if not user or not user.is_authenticated:
         return 0
 
     return 9999999999999999999
