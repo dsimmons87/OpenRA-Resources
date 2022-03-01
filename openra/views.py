@@ -171,7 +171,7 @@ def search(request, arg=""):
 def ControlPanel(request, page=1):
     if not request.user.is_authenticated:
         return HttpResponseRedirect('/login/')
-    perPage = 4
+    perPage = 16
     slice_start = perPage*int(page)-perPage
     slice_end = perPage*int(page)
     mapObject = Maps.objects.filter(user_id=request.user.id).filter(next_rev=0).order_by('-posted')
@@ -419,7 +419,7 @@ def displayMap(request, map_id):
                         if not unsubObj:
                             misc.send_email_to_user_OnComment('maps', map_id, com.user.email)
 
-            return HttpResponseRedirect('/maps/' + map_id + '/')
+            return HttpResponseRedirect('/maps/' + str(map_id) + '/')
 
     path = os.path.join(settings.BASE_DIR, __name__.split('.')[0], 'data', 'maps', str(map_id))
     oramap_filename = misc.first_oramap_in_directory(path)
@@ -622,17 +622,17 @@ def deleteScreenshot(request, screenshot_id):
     return HttpResponseRedirect("/")
 
 
-def deleteComment(request, arg, item_type, item_id):
-    comObject = Comments.objects.filter(id=arg)
+def deleteComment(request, comment_id, item_type, item_id):
+    comObject = Comments.objects.filter(id=comment_id)
     if comObject:
         if comObject[0].user == request.user or request.user.is_superuser:
-            Comments.objects.filter(id=arg).update(is_removed=True)
+            Comments.objects.filter(id=comment_id).update(is_removed=True)
 
-            coms_exist_for_map_for_user = Comments.objects.filter(id=arg, is_removed=False, user=request.user.id)
+            coms_exist_for_map_for_user = Comments.objects.filter(id=comment_id, is_removed=False, user=request.user.id)
             if not coms_exist_for_map_for_user:
                 UnsubscribeComments.objects.filter(item_type=item_type, item_id=item_id, user=request.user.id).delete()
 
-    return HttpResponseRedirect("/"+item_type+"/"+item_id+"/")
+    return HttpResponseRedirect("/"+item_type+"/"+str(item_id)+"/")
 
 
 def unsubscribe_from_comments(request, item_type, arg):
@@ -735,14 +735,14 @@ def serveYaml(request, map_id):
     return response
 
 
-def serveYamlRules(request, arg):
+def serveYamlRules(request, map_id):
 
     result = ""
 
-    mapObject = Maps.objects.filter(id=arg).first()
+    mapObject = Maps.objects.filter(id=map_id).first()
     if mapObject:
         if int(mapObject.mapformat) < 10:
-            path = os.path.join(settings.BASE_DIR, __name__.split('.')[0], 'data', 'maps', arg, 'content', 'map.yaml')
+            path = os.path.join(settings.BASE_DIR, __name__.split('.')[0], 'data', 'maps', str(map_id), 'content', 'map.yaml')
             start = False
             fn = open(path, 'r')
             lines = fn.readlines()
@@ -758,17 +758,17 @@ def serveYamlRules(request, arg):
         HttpResponseRedirect('/')
 
     response = StreamingHttpResponse(html.escape(result, quote=None), content_type='application/plain')
-    response['Content-Disposition'] = 'attachment; filename = advanced.%s' % arg
+    response['Content-Disposition'] = 'attachment; filename = advanced.%s' % str(map_id)
     return response
 
 
-def serveLua(request, arg, name):
-    path = os.path.join(settings.BASE_DIR, __name__.split('.')[0], 'data', 'maps', arg, 'content')
+def serveLua(request, map_id, filename):
+    path = os.path.join(settings.BASE_DIR, __name__.split('.')[0], 'data', 'maps', str(map_id), 'content')
     fname = ""
     listdir = os.listdir(path)
     for fn in listdir:
         if fn.endswith('.lua'):
-            if os.path.splitext(fn)[0] == name:
+            if os.path.splitext(fn)[0] == filename:
                 fname = fn
                 break
     if fname == "":
@@ -974,19 +974,19 @@ def comments(request, page=1):
     return response
 
 
-def comments_by_user(request, arg, page=1):
+def comments_by_user(request, user_id, page=1):
     perPage = 20
     slice_start = perPage*int(page)-perPage
     slice_end = perPage*int(page)
 
-    comments = Comments.objects.filter(is_removed=False, user=arg).order_by('-posted')
+    comments = Comments.objects.filter(is_removed=False, user=user_id).order_by('-posted')
     amount = len(comments)
     rowsRange = int(math.ceil(amount/float(perPage)))   # amount of rows
     comments = comments[slice_start:slice_end]
     amount_this_page = len(comments)
 
     if amount_this_page == 0 and int(page) != 1:
-        return HttpResponseRedirect("/comments/user/"+arg+"/")
+        return HttpResponseRedirect("/comments/user/"+str(user_id)+"/")
 
     template = loader.get_template('index.html')
     template_args = {
@@ -998,7 +998,7 @@ def comments_by_user(request, arg, page=1):
         'amount_this_page': amount_this_page,
         'range': [i+1 for i in range(rowsRange)],
         'page': int(page),
-        'comments_by_user': User.objects.filter(id=arg).first(),
+        'comments_by_user': User.objects.filter(id=user_id).first(),
     }
     return StreamingHttpResponse(template.render(template_args, request))
 
