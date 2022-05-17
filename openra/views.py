@@ -17,10 +17,14 @@ from django.contrib.auth import authenticate, login, logout
 from django.http import HttpResponseRedirect, Http404
 from django.utils import timezone
 
+from django.contrib.auth import login, authenticate
+from django.shortcuts import render, redirect
+
 from django.db.models import F
 from django.contrib.auth.models import User
 from allauth.socialaccount.models import SocialAccount
 from openra import handlers, misc
+from openra.forms import UserCreationFormWithEmail
 from openra.models import Maps, Lints, Screenshots, Reports, Rating, Comments, UnsubscribeComments
 
 # TODO: Fix the code and reenable some of these warnings
@@ -45,6 +49,21 @@ def index(request):
         template_args['maintenance_over'] = settings.SITE_MAINTENANCE_OVER
     return StreamingHttpResponse(template.render(template_args, request))
 
+
+def registerView(request):
+    if request.method == "POST":
+        form = UserCreationFormWithEmail(request.POST)
+        if form.is_valid():
+            form.save()
+            username = form.cleaned_data.get('username')
+            password = form.cleaned_data.get('password1')
+            user = authenticate(username=username, password=password)
+            #login(request, user, "django.contrib.auth.backends.ModelBackend")
+            login(request, user)
+            return redirect('/')
+    else:
+        form = UserCreationFormWithEmail()
+    return render(request, 'registration/registration_form.html', {'form':form})
 
 def loginView(request):
 
@@ -273,9 +292,9 @@ def maps_author(request, author, page=1):
     return StreamingHttpResponse(template.render(template_args, request))
 
 
-def maps_uploader(request, arg, page=1):
+def maps_uploader(request, user_id, page=1):
 
-    mapObject = Maps.objects.filter(user__id=arg)
+    mapObject = Maps.objects.filter(user__id=user_id)
     if not mapObject:
         HttpResponseRedirect('/maps/')
 
@@ -290,8 +309,8 @@ def maps_uploader(request, arg, page=1):
     mapObject = mapObject[slice_start:slice_end]
     if len(mapObject) == 0 and int(page) != 1:
         if request.META['QUERY_STRING']:
-            return HttpResponseRedirect("/maps/uploader/%s/?%s" % (arg, request.META['QUERY_STRING']))
-        return HttpResponseRedirect("/maps/uploader/%s/" % arg)
+            return HttpResponseRedirect("/maps/uploader/%s/?%s" % (str(user_id), request.META['QUERY_STRING']))
+        return HttpResponseRedirect("/maps/uploader/%s/" % str(user_id))
 
     comments = misc.count_comments_for_many(mapObject)
 
@@ -305,7 +324,7 @@ def maps_uploader(request, arg, page=1):
         'range': [i+1 for i in range(rowsRange)],
         'amount': amount,
         'uploader': mapObject[0].user.username,
-        'arg': arg,
+        'arg': user_id,
         'comments': comments,
 
         'filter_prepare': filter_prepare,
@@ -1098,5 +1117,5 @@ def robots(request):
     }
     return StreamingHttpResponse(template.render(template_args, request), content_type='text/plain')
 
-def favicon(requets):
+def favicon(request):
     redirect('/static/favicon.ico')

@@ -43,10 +43,10 @@ urlpatterns = [
     # path(r'^(?P<item_type>\w+)/(?P<arg>\d+)/unsubscribe/?$', views.unsubscribe_from_comments, name='Unsubscribe from comments to item'),
     path('maps/author/<str:author>/page/<int:page>/', views.maps_author, name='maps_author'),
     path('maps/author/<str:author>/', views.maps_author, name='maps_author'),
-    # path(r'^maps/uploader/(?P<arg>\d+)/?$', views.maps_uploader, name='maps_uploader'),
-    # path(r'^maps/uploader/(?P<arg>\d+)/page/(?P<page>\d+)/?$', views.maps_uploader, name='maps_uploader'),
-    # path(r'^maps/duplicates/(?P<maphash>[^/]+)/?$', views.maps_duplicates, name='maps_duplicates'),
-    # path(r'^maps/duplicates/(?P<maphash>[^/]+)/page/(?P<page>\d+)/?$', views.maps_duplicates, name='maps_duplicates'),
+    path('maps/uploader/<int:user_id>/', views.maps_uploader, name='maps_uploader'),
+    path('maps/uploader/<int:user_id>/page/<int:page>/', views.maps_uploader, name='maps_uploader'),
+    path('maps/duplicates/<str:maphash>/', views.maps_duplicates, name='maps_duplicates'),
+    path('maps/duplicates/<str:maphash>/page/<int:page>/', views.maps_duplicates, name='maps_duplicates'),
     path('maps/page/<int:page>/', views.maps, name='maps_paged'),
     path('maps/<int:map_id>/yaml/', views.serveYaml, name='printYaml'),
     path('maps/<int:map_id>/rules/', views.serveYamlRules, name='printYamlRules'),
@@ -69,13 +69,15 @@ urlpatterns = [
 
     path('deletecomment/<int:comment_id>/<str:item_type>/<int:item_id>/', views.deleteComment, name='deleteComment'),
 
-    # path(r'^auth/register/?$', RegistrationView.as_view(form_class=RegistrationFormUniqueEmail), name='registration_register'),
+    #path('auth/register/', RegistrationView.as_view(form_class=RegistrationFormUniqueEmail), name='registration_register'),
+    # path('auth/register/', RegistrationView.as_view(form_class=RegistrationFormUniqueEmail), name='registration_register'),
     # path(r'^auth/', include('registration.backends.default.urls')),
 
+    path('auth/register/', views.registerView, name='registration_register'),
     path('login/', views.loginView, name='loginView'),
     path('logout/', views.logoutView, name='logoutView'),
 
-    # path(r'^accounts/', include('allauth.urls')),
+    path('accounts/', include('allauth.urls')),
     path('accounts/profile/', views.profile, name='profile'),
 
 
