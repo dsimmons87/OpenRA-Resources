@@ -5,7 +5,7 @@ from django.utils import timezone
 from django.test import TestCase
 from django.core.management import call_command
 from django.contrib.auth import authenticate
-from openra.classes.exceptions import ExceptionBase
+from openra.services.docker import ExceptionDockerExceptionResponse
 from openra.fakes.log import FakeLog
 
 from openra.models import User, Maps
@@ -148,22 +148,33 @@ class TestTestDocker(TestCase):
             log=providers.Singleton(FakeLog),
         )
 
-        exception_mock = ExceptionBase
-        exception_mock.get_full_details = MagicMock(
-            return_value='sample_output'
+        # Create the appropriate Docker exception that would actually be thrown
+        test_exception = ExceptionDockerExceptionResponse(
+            exception=RuntimeError("Docker container failed"),
+            command='test_command',
+            volumes=[],
+            working_dir='/'
         )
 
         docker_mock = Mock(spec=Docker)
         docker_mock.test_docker = MagicMock(
-            side_effect=exception_mock
+            side_effect=test_exception
         )
         container.docker.override(docker_mock)
 
         call_command('test_docker')
 
         docker_mock.test_docker.assert_called_once_with()
-        self.assertTrue(
-            container.log().contains('exception', 'sample_output')
-        )
+        # The log should contain the full exception details
+        # Check that an exception was logged (any exception entry should exist)
+        fake_log = container.log()
+        exception_logged = False
+        for entry in fake_log.entries:
+            if entry['log_type'] == 'exception':
+                exception_logged = True
+                # Also verify it contains some expected text from the Docker exception
+                self.assertIn('Docker threw an exception', entry['message'])
+                break
+        self.assertTrue(exception_logged, "No exception was logged")
 
         overrides.__exit__()

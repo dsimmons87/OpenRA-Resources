@@ -34,6 +34,15 @@ from openra.classes.pagination import Pagination
 from openra.services.screenshot_repository import ScreenshotRepository
 from openra.services.openra_master import OpenraMaster
 from openra.services.uploaded_file_importer import UploadedFileImporter
+from openra.services.map_upload_orchestrator import (
+    MapUploadOrchestrator,
+    ExceptionMapUploadMetadataInvalid,
+    ExceptionMapUploadFileStorageFailed
+)
+from openra.services.map_database_service import (
+    ExceptionMapAlreadyExists,
+    ExceptionMapMetadataMissing
+)
 
 # TODO: Fix the code and reenable some of these warnings
 # pylint: disable=invalid-name
@@ -786,6 +795,7 @@ def serveLua(request, arg, name):
 def uploadMap(request, previous_rev=0,
               uploaded_file_importer: UploadedFileImporter = Provide['uploaded_file_importer'],
               map_file_extractor: MapFileExtractor = Provide['map_file_extractor'],
+              map_upload_orchestrator: MapUploadOrchestrator = Provide['map_upload_orchestrator']
               ):
     if not request.user.is_authenticated():
         return HttpResponseRedirect('/maps/')
@@ -820,27 +830,72 @@ def uploadMap(request, previous_rev=0,
 
     if request.method == 'POST' and request.FILES.get('file', None) is not None:
 
-        engine = Engines.objects.get(
-            game_mod='ra',
-            version=request.POST.get('parser')
-        )
+        # Validate engine exists
+        try:
+            engine = Engines.objects.get(
+                game_mod='ra',
+                version=request.POST.get('parser')
+            )
+        except Engines.DoesNotExist:
+            error_message = "Invalid parser selected"
+        else:
+            try:
+                # Determine the user for the upload (handle superuser case)
+                upload_user = request.user
+                if previous_rev != 0 and request.user.is_superuser:
+                    previous_map = Maps.objects.get(id=previous_rev)
+                    upload_user = previous_map.user
 
-        if engine is None:
-            raise Exception("engine not found")
+                # Process the uploaded file
+                map_file = uploaded_file_importer.import_file(request.FILES.get('file', None), 'temp.oramap')
+                extracted = map_file_extractor.open_in_place(map_file)
 
-        map_file = uploaded_file_importer.import_file(request.FILES.get('file', None), 'temp.oramap')
-        extracted = map_file_extractor.open_in_place(map_file)
-        metadata = extracted.parse_metadata()
+                # Build policy dictionary from POST data
+                policy = {
+                    'cc': False,
+                    'commercial': False,
+                    'adaptations': ''
+                }
 
-        print(metadata)
+                if previous_rev != 0:
+                    # Use existing policy from previous revision
+                    previous_map = Maps.objects.get(id=previous_rev)
+                    policy['cc'] = previous_map.policy_cc
+                    policy['commercial'] = previous_map.policy_commercial
+                    policy['adaptations'] = previous_map.policy_adaptations
+                else:
+                    # Parse policy from form data
+                    if request.POST.get('policy_cc') == 'cc_yes':
+                        policy['cc'] = True
+                        if request.POST.get('commercial') == "com_yes":
+                            policy['commercial'] = True
+                        if request.POST.get('adaptations') == "adapt_yes":
+                            policy['adaptations'] = "yes"
+                        elif request.POST.get('adaptations') == "adapt_no":
+                            policy['adaptations'] = "no"
+                        else:
+                            policy['adaptations'] = "yes and shared alike"
 
-        return HttpResponseRedirect('/maps/')
+                # Use the orchestrator to handle the upload
+                uploaded_map = map_upload_orchestrator.upload_map(
+                    map_file_location=map_file,
+                    extracted_map=extracted,
+                    user=upload_user,
+                    parser=engine.version,
+                    description=request.POST.get('info', '').strip(),
+                    policy=policy,
+                    revision=rev,
+                    previous_revision_id=previous_rev if previous_rev != 0 else 0
+                )
 
-        # try:
-        # item = handlers.process_upload(user_id, request.FILES['file'], request.POST, rev, previous_rev)
-        # return HttpResponseRedirect('/maps/' + str(item.id) + "/")
-        # except handlers.InvalidMapException as exception:
-        # error_message = exception.message
+                return HttpResponseRedirect('/maps/' + str(uploaded_map.id) + "/")
+
+            except (ExceptionMapUploadMetadataInvalid, ExceptionMapUploadFileStorageFailed) as exception:
+                error_message = exception.message
+            except (ExceptionMapAlreadyExists, ExceptionMapMetadataMissing) as exception:
+                error_message = exception.message
+            except Exception as exception:
+                error_message = "Upload failed: " + str(exception)
 
     template = loader.get_template('index.html')
     template_args = {

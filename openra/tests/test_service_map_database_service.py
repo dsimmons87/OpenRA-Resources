@@ -2,25 +2,20 @@ from unittest import TestCase
 from unittest.mock import Mock, patch
 from django.contrib.auth.models import User
 from django.utils import timezone
-import hashlib
 
 from openra.models import Maps
 from openra.classes.map_hash import MapHash
 from openra.services.map_database_service import (MapDatabaseService, ExceptionMapAlreadyExists,
                                                   ExceptionMapMetadataMissing)
 from openra.tests.factories import UserFactory
+from openra.tests.helpers import UniqueHashGenerator
 
 
 class TestServiceMapDatabaseService(TestCase):
 
-    # Class variable to track unique hash generation
-    _hash_counter = 0
-
-    @classmethod
-    def get_unique_hash(cls):
+    def get_unique_hash(self):
         """Generate a unique 40-character hash for testing"""
-        cls._hash_counter += 1
-        return hashlib.sha1(str(cls._hash_counter).encode()).hexdigest()
+        return UniqueHashGenerator.get_unique_hash()
 
     def setUp(self):
         self.service = MapDatabaseService()
