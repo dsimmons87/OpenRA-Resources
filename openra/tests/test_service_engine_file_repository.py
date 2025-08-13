@@ -7,7 +7,7 @@ from openra.classes.file_location import FileLocation
 from openra.classes.release import Release
 from openra.services.docker import Docker
 
-from openra.services.engine_file_repository import EngineFileRepository, ExceptionEngineAppRunNotFound, ExceptionEngineFolderNotFound
+from openra.services.engine_file_repository import EngineFileRepository, ExceptionEngineAppRunNotFound, ExceptionEngineFolderNotFound, ExceptionModFolderNotFound
 
 
 class TestServiceEngineFileRepository(TestCase):

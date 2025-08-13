@@ -69,6 +69,14 @@ class EngineFileRepository:
         return str(os.path.join('engines', release.mod, release.version))
 
 
+class ExceptionModFolderNotFound(ExceptionBase):
+    def __init__(self, fs: FS, mod: str, path: str):
+        super().__init__()
+        self.message = "Folder not found for mod"
+        self.detail.append('fs type: ' + str(type(fs)))
+        self.detail.append('mod: ' + str(mod))
+        self.detail.append('path: ' + path)
+
 class ExceptionEngineFolderNotFound(ExceptionBase):
     def __init__(self, fs: FS, release: Release, path: str):
         super().__init__()

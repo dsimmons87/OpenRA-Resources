@@ -26,12 +26,14 @@ from openra import content, handlers, misc
 from openra.auth import ExceptionLoginFailed, set_session_to_remember_auth, try_login
 from openra.classes.exceptions import ExceptionBase
 from openra.classes.screenshot_resource import ScreenshotResource
-from openra.models import Maps, Lints, Screenshots, Reports, Rating, Comments, UnsubscribeComments
+from openra.models import Engines, Maps, Lints, Screenshots, Reports, Rating, Comments, UnsubscribeComments
+from openra.services.map_file_extractor import MapFileExtractor
 from openra.services.map_file_repository import MapFileRepository
 from openra.services.map_search import MapSearch
 from openra.classes.pagination import Pagination
 from openra.services.screenshot_repository import ScreenshotRepository
 from openra.services.openra_master import OpenraMaster
+from openra.services.uploaded_file_importer import UploadedFileImporter
 
 # TODO: Fix the code and reenable some of these warnings
 # pylint: disable=invalid-name
@@ -661,7 +663,7 @@ def serveScreenshot(request, itemid, itemname=""):
         Dir = os.listdir(path)
     except BaseException:
         return HttpResponseRedirect("/")
-    for fn in Dir:
+    for fn in Dir:ile systm
         if "-mini." in fn:
             if itemname == "mini":
                 image = os.path.join(path, fn)
@@ -780,7 +782,11 @@ def serveLua(request, arg, name):
     return response
 
 
-def uploadMap(request, previous_rev=0):
+@inject
+def uploadMap(request, previous_rev=0,
+              uploaded_file_importer: UploadedFileImporter = Provide['uploaded_file_importer'],
+              map_file_extractor: MapFileExtractor = Provide['map_file_extractor'],
+              ):
     if not request.user.is_authenticated():
         return HttpResponseRedirect('/maps/')
 
@@ -793,7 +799,7 @@ def uploadMap(request, previous_rev=0):
             'title': 'Action Blocked',
         }
 
-        return StreamingHttpResponse(template.render(template_args, request))
+        return HttpResponse(template.render(template_args, request))
 
     error_message = None
     rev = 1
@@ -807,12 +813,35 @@ def uploadMap(request, previous_rev=0):
             if request.user.is_superuser:
                 user_id = mapObject[0].user_id
 
+    parsers = []
+    for engine in Engines.objects.all():
+        if engine.version not in parsers:
+            parsers.append(engine.version)
+
     if request.method == 'POST' and request.FILES.get('file', None) is not None:
-        try:
-            item = handlers.process_upload(user_id, request.FILES['file'], request.POST, rev, previous_rev)
-            return HttpResponseRedirect('/maps/' + str(item.id) + "/")
-        except handlers.InvalidMapException as exception:
-            error_message = exception.message
+
+        engine = Engines.objects.get(
+            game_mod= 'ra',
+            version=request.POST.get('parser')
+        );
+
+        if engine is None:
+            raise Exception("engine not found")
+
+        map_file = uploaded_file_importer.import_file(request.FILES.get('file', None), 'temp.oramap')
+        extracted = map_file_extractor.open_in_place(map_file)
+        metadata = extracted.parse_metadata();
+
+        print(metadata);
+
+        return HttpResponseRedirect('/maps/')
+
+
+        #try:
+            #item = handlers.process_upload(user_id, request.FILES['file'], request.POST, rev, previous_rev)
+            #return HttpResponseRedirect('/maps/' + str(item.id) + "/")
+        #except handlers.InvalidMapException as exception:
+            #error_message = exception.message
 
     template = loader.get_template('index.html')
     template_args = {
@@ -822,7 +851,7 @@ def uploadMap(request, previous_rev=0):
         'previous_rev': previous_rev,
         'previous_rev_title': previous_rev_title,
         'rev': rev,
-        'parsers': settings.OPENRA_VERSIONS,
+        'parsers': parsers,
         'error_response': error_message,
     }
 
@@ -830,7 +859,7 @@ def uploadMap(request, previous_rev=0):
         template_args['content'] = 'service/maintenance.html'
         template_args['maintenance_over'] = settings.SITE_MAINTENANCE_OVER
 
-    return StreamingHttpResponse(template.render(template_args, request))
+    return HttpResponse(template.render(template_args, request))
 
 
 def DeleteMap(request, arg):

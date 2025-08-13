@@ -9,6 +9,7 @@ from openra.services.engine_file_repository import EngineFileRepository
 from openra.services.file_downloader import FileDownloader
 from openra.services.github import Github
 from openra.services.log import Log
+from openra.services.map_file_extractor import MapFileExtractor
 from openra.services.map_file_repository import MapFileRepository
 from openra.services.map_search import MapSearch
 from openra.services.screenshot_repository import ScreenshotRepository
@@ -58,6 +59,10 @@ class Container(containers.DeclarativeContainer):
 
     map_file_repository = providers.Singleton(
         MapFileRepository
+    )
+
+    map_file_extractor = providers.Singleton(
+        MapFileExtractor
     )
 
     file_downloader = providers.Singleton(
