@@ -113,4 +113,3 @@ class ExtractedMap:
             metadata['base64_players'] = base64.b64encode(players_nodes.encode()).decode()
 
         return metadata
-

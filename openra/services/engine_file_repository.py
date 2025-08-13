@@ -77,6 +77,7 @@ class ExceptionModFolderNotFound(ExceptionBase):
         self.detail.append('mod: ' + str(mod))
         self.detail.append('path: ' + path)
 
+
 class ExceptionEngineFolderNotFound(ExceptionBase):
     def __init__(self, fs: FS, release: Release, path: str):
         super().__init__()

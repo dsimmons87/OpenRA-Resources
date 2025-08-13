@@ -64,6 +64,46 @@ class MapFileRepository:
     def _get_content_path(self, map_id: int):
         return os.path.join('maps', str(map_id), 'content')
 
+    def store_map(self, map_id: int, map_file_location: FileLocation, extracted_map_location: FileLocation):
+        """Store the map file and its extracted contents"""
+        from fs import copy
+
+        target_path = self._get_target_path(map_id)
+        content_path = self._get_content_path(map_id)
+
+        # Create directories if they don't exist
+        if not self._data_fs.exists(target_path):
+            self._data_fs.makedirs(target_path)
+        if not self._data_fs.exists(content_path):
+            self._data_fs.makedirs(content_path)
+
+        # Store the original map file
+        original_filename = map_file_location.file or 'map.oramap'
+        target_map_path = os.path.join(target_path, original_filename)
+
+        try:
+            copy.copy_file(
+                map_file_location.fs,
+                map_file_location.get_fs_path(),
+                self._data_fs,
+                target_map_path
+            )
+        except Exception as e:
+            raise ExceptionMapFileStorageFailed(map_id, str(e))
+
+        # Store extracted contents - this is critical for the map to function
+        try:
+            copy.copy_dir(
+                extracted_map_location.fs,
+                extracted_map_location.path,
+                self._data_fs,
+                content_path
+            )
+        except Exception as e:
+            raise ExceptionMapContentStorageFailed(map_id, str(e))
+
+        return FileLocation(self._data_fs, target_path, original_filename)
+
 
 class ExceptionMapFolderNotFound(ExceptionBase):
     def __init__(self, fs: FS, map_id: int, path: str):
@@ -90,3 +130,19 @@ class ExceptionOramapNotFound(ExceptionBase):
         self.detail.append('fs type: ' + str(type(fs)))
         self.detail.append('map: ' + str(map_id))
         self.detail.append('path: ' + path)
+
+
+class ExceptionMapFileStorageFailed(ExceptionBase):
+    def __init__(self, map_id: int, error: str):
+        super().__init__()
+        self.message = "Failed to store map file"
+        self.detail.append('map: ' + str(map_id))
+        self.detail.append('error: ' + error)
+
+
+class ExceptionMapContentStorageFailed(ExceptionBase):
+    def __init__(self, map_id: int, error: str):
+        super().__init__()
+        self.message = "Failed to store map content"
+        self.detail.append('map: ' + str(map_id))
+        self.detail.append('error: ' + error)

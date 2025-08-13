@@ -663,7 +663,7 @@ def serveScreenshot(request, itemid, itemname=""):
         Dir = os.listdir(path)
     except BaseException:
         return HttpResponseRedirect("/")
-    for fn in Dir:ile systm
+    for fn in Dir:
         if "-mini." in fn:
             if itemname == "mini":
                 image = os.path.join(path, fn)
@@ -821,27 +821,26 @@ def uploadMap(request, previous_rev=0,
     if request.method == 'POST' and request.FILES.get('file', None) is not None:
 
         engine = Engines.objects.get(
-            game_mod= 'ra',
+            game_mod='ra',
             version=request.POST.get('parser')
-        );
+        )
 
         if engine is None:
             raise Exception("engine not found")
 
         map_file = uploaded_file_importer.import_file(request.FILES.get('file', None), 'temp.oramap')
         extracted = map_file_extractor.open_in_place(map_file)
-        metadata = extracted.parse_metadata();
+        metadata = extracted.parse_metadata()
 
-        print(metadata);
+        print(metadata)
 
         return HttpResponseRedirect('/maps/')
 
-
-        #try:
-            #item = handlers.process_upload(user_id, request.FILES['file'], request.POST, rev, previous_rev)
-            #return HttpResponseRedirect('/maps/' + str(item.id) + "/")
-        #except handlers.InvalidMapException as exception:
-            #error_message = exception.message
+        # try:
+        # item = handlers.process_upload(user_id, request.FILES['file'], request.POST, rev, previous_rev)
+        # return HttpResponseRedirect('/maps/' + str(item.id) + "/")
+        # except handlers.InvalidMapException as exception:
+        # error_message = exception.message
 
     template = loader.get_template('index.html')
     template_args = {
