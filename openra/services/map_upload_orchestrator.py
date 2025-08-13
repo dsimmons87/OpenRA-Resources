@@ -6,8 +6,10 @@ from openra.classes.map_hash import MapHash
 from openra.classes.exceptions import ExceptionBase
 from openra.services.map_database_service import MapDatabaseService
 from openra.services.map_file_repository import MapFileRepository
+from openra.services.engine_file_repository import EngineFileRepository
 from openra.services.utility.map_hash import MapHashCommand, MapHashTranslator
 from openra.services.docker import Docker
+from openra.classes.release import Release
 
 
 class MapUploadOrchestrator:
@@ -15,13 +17,11 @@ class MapUploadOrchestrator:
     def __init__(self,
                  map_database_service: MapDatabaseService,
                  map_file_repository: MapFileRepository,
-                 map_hash_command: MapHashCommand,
-                 map_hash_translator: MapHashTranslator,
+                 engine_file_repository: EngineFileRepository,
                  docker: Docker):
         self.map_database_service = map_database_service
         self.map_file_repository = map_file_repository
-        self.map_hash_command = map_hash_command
-        self.map_hash_translator = map_hash_translator
+        self.engine_file_repository = engine_file_repository
         self.docker = docker
 
     def upload_map(self,
@@ -38,14 +38,29 @@ class MapUploadOrchestrator:
         Returns the created Maps model instance.
         """
 
-        # Step 1: Calculate map hash
-        hash_output = self.map_hash_command.run_command(self.docker)
-        map_hash = self.map_hash_translator.translate(hash_output)
-
-        # Step 2: Parse and validate metadata
+        # Step 1: Parse and validate metadata first (needed for hash calculation)
         metadata = extracted_map.parse_metadata()
         if not metadata:
             raise ExceptionMapUploadMetadataInvalid()
+
+        # Step 2: Calculate map hash using the appropriate engine
+        # Create a Release object from the parser and metadata
+        game_mod = metadata.get('game_mod', 'ra')  # Default to RA if not specified
+        release = Release(game_mod, parser, False)  # Assume not playtest for now
+
+        # Get engine location from the repository
+        engine_location = self.engine_file_repository.get_path(release)
+
+        # Create hash command with the specific file locations for this upload
+        map_hash_command = MapHashCommand(
+            engine_location=engine_location,
+            map_location=map_file_location
+        )
+        hash_output = map_hash_command.run_command(self.docker)
+
+        # Translate the hash output
+        map_hash_translator = MapHashTranslator()
+        map_hash = map_hash_translator.translate(hash_output)
 
         # Step 3: Save to database first (this will validate and check for duplicates)
         map_record = self.map_database_service.save_map_record(

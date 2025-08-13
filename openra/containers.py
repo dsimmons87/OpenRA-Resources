@@ -16,6 +16,9 @@ from openra.services.screenshot_repository import ScreenshotRepository
 from openra.services.uploaded_file_importer import UploadedFileImporter
 from openra.services.openra_master import OpenraMaster
 from openra.services.utility import Utility
+from openra.services.map_database_service import MapDatabaseService
+from openra.services.map_upload_orchestrator import MapUploadOrchestrator
+from openra.services.utility.map_hash import MapHashCommand, MapHashTranslator
 
 
 class Container(containers.DeclarativeContainer):
@@ -54,11 +57,14 @@ class Container(containers.DeclarativeContainer):
     )
 
     engine_file_repository = providers.Singleton(
-        EngineFileRepository
+        EngineFileRepository,
+        data_fs=data_fs,
+        docker=docker
     )
 
     map_file_repository = providers.Singleton(
-        MapFileRepository
+        MapFileRepository,
+        data_fs=data_fs
     )
 
     map_file_extractor = providers.Singleton(
@@ -79,6 +85,20 @@ class Container(containers.DeclarativeContainer):
 
     openra_master = providers.Singleton(
         OpenraMaster
+    )
+
+    # Map database service
+    map_database_service = providers.Singleton(
+        MapDatabaseService
+    )
+
+    # Map upload orchestrator
+    map_upload_orchestrator = providers.Singleton(
+        MapUploadOrchestrator,
+        map_database_service=map_database_service,
+        map_file_repository=map_file_repository,
+        engine_file_repository=engine_file_repository,
+        docker=docker
     )
 
 

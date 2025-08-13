@@ -18,8 +18,10 @@ from openra.services.map_database_service import (
     ExceptionMapMetadataMissing
 )
 from openra.services.map_file_repository import MapFileRepository, ExceptionMapFileStorageFailed
+from openra.services.engine_file_repository import EngineFileRepository
 from openra.services.utility.map_hash import MapHashCommand, MapHashTranslator
 from openra.services.docker import Docker
+from openra.classes.release import Release
 from openra.tests.factories import UserFactory
 from openra.tests.helpers import UniqueHashGenerator
 
@@ -34,16 +36,14 @@ class TestServiceMapUploadOrchestrator(TestCase):
         # Create mock dependencies
         self.mock_map_database_service = Mock(spec=MapDatabaseService)
         self.mock_map_file_repository = Mock(spec=MapFileRepository)
-        self.mock_map_hash_command = Mock(spec=MapHashCommand)
-        self.mock_map_hash_translator = Mock(spec=MapHashTranslator)
+        self.mock_engine_file_repository = Mock(spec=EngineFileRepository)
         self.mock_docker = Mock(spec=Docker)
 
         # Create orchestrator with mocked dependencies
         self.orchestrator = MapUploadOrchestrator(
             map_database_service=self.mock_map_database_service,
             map_file_repository=self.mock_map_file_repository,
-            map_hash_command=self.mock_map_hash_command,
-            map_hash_translator=self.mock_map_hash_translator,
+            engine_file_repository=self.mock_engine_file_repository,
             docker=self.mock_docker
         )
 
@@ -79,7 +79,9 @@ class TestServiceMapUploadOrchestrator(TestCase):
         self.mock_extracted_map = Mock(spec=ExtractedMap)
         self.mock_extracted_map.location = self.mock_extracted_map_location
 
-    def test_upload_map_completes_successfully(self):
+    @patch('openra.services.map_upload_orchestrator.MapHashTranslator')
+    @patch('openra.services.map_upload_orchestrator.MapHashCommand')
+    def test_upload_map_completes_successfully(self, mock_map_hash_command_class, mock_map_hash_translator_class):
         # Setup - configure mocks for successful upload
         map_hash_output = "test_hash_output"
         map_hash = MapHash(self.get_unique_hash())
@@ -91,12 +93,20 @@ class TestServiceMapUploadOrchestrator(TestCase):
         mock_map_record.title = 'Test Map'
         mock_map_record.delete = Mock()  # Add delete method for cleanup testing
 
-        # Configure mocks
-        self.mock_map_hash_command.run_command.return_value = map_hash_output
-        self.mock_map_hash_translator.translate.return_value = map_hash
+        # Configure mock instances
+        mock_map_hash_command = Mock()
+        mock_map_hash_command.run_command.return_value = map_hash_output
+        mock_map_hash_command_class.return_value = mock_map_hash_command
+
+        mock_map_hash_translator = Mock()
+        mock_map_hash_translator.translate.return_value = map_hash
+        mock_map_hash_translator_class.return_value = mock_map_hash_translator
+
+        # Configure other mocks
         self.mock_extracted_map.parse_metadata.return_value = self.valid_metadata
         self.mock_map_database_service.save_map_record.return_value = mock_map_record
         self.mock_map_file_repository.store_map.return_value = None
+        self.mock_engine_file_repository.get_path.return_value = Mock()  # Engine location
 
         # Execute
         result = self.orchestrator.upload_map(
@@ -114,8 +124,8 @@ class TestServiceMapUploadOrchestrator(TestCase):
         self.assertEqual(result, mock_map_record)
 
         # Verify the orchestrator called all components correctly
-        self.mock_map_hash_command.run_command.assert_called_once()
-        self.mock_map_hash_translator.translate.assert_called_once_with(map_hash_output)
+        mock_map_hash_command.run_command.assert_called_once_with(self.mock_docker)
+        mock_map_hash_translator.translate.assert_called_once_with(map_hash_output)
         self.mock_extracted_map.parse_metadata.assert_called_once()
 
         self.mock_map_database_service.save_map_record.assert_called_once_with(
@@ -137,11 +147,6 @@ class TestServiceMapUploadOrchestrator(TestCase):
 
     def test_upload_map_throws_exception_when_metadata_parsing_fails(self):
         # Setup - metadata parsing returns None/empty
-        map_hash_output = "test_hash_output"
-        map_hash = MapHash(self.get_unique_hash())
-
-        self.mock_map_hash_command.run_command.return_value = map_hash_output
-        self.mock_map_hash_translator.translate.return_value = map_hash
         self.mock_extracted_map.parse_metadata.return_value = None  # Simulate parsing failure
 
         # Execute & Assert
@@ -165,11 +170,6 @@ class TestServiceMapUploadOrchestrator(TestCase):
 
     def test_upload_map_throws_exception_when_metadata_parsing_returns_empty_dict(self):
         # Setup - metadata parsing returns empty dict
-        map_hash_output = "test_hash_output"
-        map_hash = MapHash(self.get_unique_hash())
-
-        self.mock_map_hash_command.run_command.return_value = map_hash_output
-        self.mock_map_hash_translator.translate.return_value = map_hash
         self.mock_extracted_map.parse_metadata.return_value = {}  # Empty dict is falsy
 
         # Execute & Assert
@@ -186,14 +186,24 @@ class TestServiceMapUploadOrchestrator(TestCase):
         exception = context.exception
         self.assertEqual(exception.message, "Unable to parse map metadata")
 
-    def test_upload_map_propagates_database_service_exceptions(self):
+    @patch('openra.services.map_upload_orchestrator.MapHashTranslator')
+    @patch('openra.services.map_upload_orchestrator.MapHashCommand')
+    def test_upload_map_propagates_database_service_exceptions(self, mock_map_hash_command_class, mock_map_hash_translator_class):
         # Setup - database service throws exception for duplicate hash
         map_hash_output = "test_hash_output"
         map_hash = MapHash(self.get_unique_hash())
 
-        self.mock_map_hash_command.run_command.return_value = map_hash_output
-        self.mock_map_hash_translator.translate.return_value = map_hash
+        # Configure mock instances
+        mock_map_hash_command = Mock()
+        mock_map_hash_command.run_command.return_value = map_hash_output
+        mock_map_hash_command_class.return_value = mock_map_hash_command
+
+        mock_map_hash_translator = Mock()
+        mock_map_hash_translator.translate.return_value = map_hash
+        mock_map_hash_translator_class.return_value = mock_map_hash_translator
+
         self.mock_extracted_map.parse_metadata.return_value = self.valid_metadata
+        self.mock_engine_file_repository.get_path.return_value = Mock()  # Engine location
         self.mock_map_database_service.save_map_record.side_effect = ExceptionMapAlreadyExists(map_hash.map_hash)
 
         # Execute & Assert
@@ -210,14 +220,24 @@ class TestServiceMapUploadOrchestrator(TestCase):
         # Verify file repository was never called (database failed first)
         self.mock_map_file_repository.store_map.assert_not_called()
 
-    def test_upload_map_propagates_missing_metadata_exceptions(self):
+    @patch('openra.services.map_upload_orchestrator.MapHashTranslator')
+    @patch('openra.services.map_upload_orchestrator.MapHashCommand')
+    def test_upload_map_propagates_missing_metadata_exceptions(self, mock_map_hash_command_class, mock_map_hash_translator_class):
         # Setup - database service throws exception for missing metadata
         map_hash_output = "test_hash_output"
         map_hash = MapHash(self.get_unique_hash())
 
-        self.mock_map_hash_command.run_command.return_value = map_hash_output
-        self.mock_map_hash_translator.translate.return_value = map_hash
+        # Configure mock instances
+        mock_map_hash_command = Mock()
+        mock_map_hash_command.run_command.return_value = map_hash_output
+        mock_map_hash_command_class.return_value = mock_map_hash_command
+
+        mock_map_hash_translator = Mock()
+        mock_map_hash_translator.translate.return_value = map_hash
+        mock_map_hash_translator_class.return_value = mock_map_hash_translator
+
         self.mock_extracted_map.parse_metadata.return_value = self.valid_metadata
+        self.mock_engine_file_repository.get_path.return_value = Mock()  # Engine location
         self.mock_map_database_service.save_map_record.side_effect = ExceptionMapMetadataMissing('title')
 
         # Execute & Assert
@@ -234,7 +254,9 @@ class TestServiceMapUploadOrchestrator(TestCase):
         # Verify file repository was never called (database failed first)
         self.mock_map_file_repository.store_map.assert_not_called()
 
-    def test_upload_map_cleans_up_database_record_when_file_storage_fails(self):
+    @patch('openra.services.map_upload_orchestrator.MapHashTranslator')
+    @patch('openra.services.map_upload_orchestrator.MapHashCommand')
+    def test_upload_map_cleans_up_database_record_when_file_storage_fails(self, mock_map_hash_command_class, mock_map_hash_translator_class):
         # Setup - file storage fails after successful database save
         map_hash_output = "test_hash_output"
         map_hash = MapHash(self.get_unique_hash())
@@ -244,9 +266,17 @@ class TestServiceMapUploadOrchestrator(TestCase):
         mock_map_record.id = 123
         mock_map_record.delete = Mock()
 
-        self.mock_map_hash_command.run_command.return_value = map_hash_output
-        self.mock_map_hash_translator.translate.return_value = map_hash
+        # Configure mock instances
+        mock_map_hash_command = Mock()
+        mock_map_hash_command.run_command.return_value = map_hash_output
+        mock_map_hash_command_class.return_value = mock_map_hash_command
+
+        mock_map_hash_translator = Mock()
+        mock_map_hash_translator.translate.return_value = map_hash
+        mock_map_hash_translator_class.return_value = mock_map_hash_translator
+
         self.mock_extracted_map.parse_metadata.return_value = self.valid_metadata
+        self.mock_engine_file_repository.get_path.return_value = Mock()  # Engine location
         self.mock_map_database_service.save_map_record.return_value = mock_map_record
 
         # Make file repository throw an exception
@@ -274,7 +304,9 @@ class TestServiceMapUploadOrchestrator(TestCase):
         # Verify database record was cleaned up
         mock_map_record.delete.assert_called_once()
 
-    def test_upload_map_cleans_up_database_record_when_generic_file_storage_exception_occurs(self):
+    @patch('openra.services.map_upload_orchestrator.MapHashTranslator')
+    @patch('openra.services.map_upload_orchestrator.MapHashCommand')
+    def test_upload_map_cleans_up_database_record_when_generic_file_storage_exception_occurs(self, mock_map_hash_command_class, mock_map_hash_translator_class):
         # Setup - generic exception from file storage
         map_hash_output = "test_hash_output"
         map_hash = MapHash(self.get_unique_hash())
@@ -284,9 +316,17 @@ class TestServiceMapUploadOrchestrator(TestCase):
         mock_map_record.id = 123
         mock_map_record.delete = Mock()
 
-        self.mock_map_hash_command.run_command.return_value = map_hash_output
-        self.mock_map_hash_translator.translate.return_value = map_hash
+        # Configure mock instances
+        mock_map_hash_command = Mock()
+        mock_map_hash_command.run_command.return_value = map_hash_output
+        mock_map_hash_command_class.return_value = mock_map_hash_command
+
+        mock_map_hash_translator = Mock()
+        mock_map_hash_translator.translate.return_value = map_hash
+        mock_map_hash_translator_class.return_value = mock_map_hash_translator
+
         self.mock_extracted_map.parse_metadata.return_value = self.valid_metadata
+        self.mock_engine_file_repository.get_path.return_value = Mock()  # Engine location
         self.mock_map_database_service.save_map_record.return_value = mock_map_record
 
         # Make file repository throw a generic exception
@@ -311,7 +351,9 @@ class TestServiceMapUploadOrchestrator(TestCase):
         # Verify database record was cleaned up
         mock_map_record.delete.assert_called_once()
 
-    def test_upload_map_with_custom_revision_and_previous_revision(self):
+    @patch('openra.services.map_upload_orchestrator.MapHashTranslator')
+    @patch('openra.services.map_upload_orchestrator.MapHashCommand')
+    def test_upload_map_with_custom_revision_and_previous_revision(self, mock_map_hash_command_class, mock_map_hash_translator_class):
         # Setup - test with custom revision parameters
         map_hash_output = "test_hash_output"
         map_hash = MapHash(self.get_unique_hash())
@@ -322,9 +364,17 @@ class TestServiceMapUploadOrchestrator(TestCase):
         mock_map_record.pre_rev = 123
         mock_map_record.delete = Mock()
 
-        self.mock_map_hash_command.run_command.return_value = map_hash_output
-        self.mock_map_hash_translator.translate.return_value = map_hash
+        # Configure mock instances
+        mock_map_hash_command = Mock()
+        mock_map_hash_command.run_command.return_value = map_hash_output
+        mock_map_hash_command_class.return_value = mock_map_hash_command
+
+        mock_map_hash_translator = Mock()
+        mock_map_hash_translator.translate.return_value = map_hash
+        mock_map_hash_translator_class.return_value = mock_map_hash_translator
+
         self.mock_extracted_map.parse_metadata.return_value = self.valid_metadata
+        self.mock_engine_file_repository.get_path.return_value = Mock()  # Engine location
         self.mock_map_database_service.save_map_record.return_value = mock_map_record
         self.mock_map_file_repository.store_map.return_value = None
 
@@ -355,7 +405,9 @@ class TestServiceMapUploadOrchestrator(TestCase):
             previous_revision_id=123
         )
 
-    def test_upload_map_uses_default_revision_parameters_when_not_provided(self):
+    @patch('openra.services.map_upload_orchestrator.MapHashTranslator')
+    @patch('openra.services.map_upload_orchestrator.MapHashCommand')
+    def test_upload_map_uses_default_revision_parameters_when_not_provided(self, mock_map_hash_command_class, mock_map_hash_translator_class):
         # Setup - test default parameters
         map_hash_output = "test_hash_output"
         map_hash = MapHash(self.get_unique_hash())
@@ -364,9 +416,17 @@ class TestServiceMapUploadOrchestrator(TestCase):
         mock_map_record.id = 789
         mock_map_record.delete = Mock()
 
-        self.mock_map_hash_command.run_command.return_value = map_hash_output
-        self.mock_map_hash_translator.translate.return_value = map_hash
+        # Configure mock instances
+        mock_map_hash_command = Mock()
+        mock_map_hash_command.run_command.return_value = map_hash_output
+        mock_map_hash_command_class.return_value = mock_map_hash_command
+
+        mock_map_hash_translator = Mock()
+        mock_map_hash_translator.translate.return_value = map_hash
+        mock_map_hash_translator_class.return_value = mock_map_hash_translator
+
         self.mock_extracted_map.parse_metadata.return_value = self.valid_metadata
+        self.mock_engine_file_repository.get_path.return_value = Mock()  # Engine location
         self.mock_map_database_service.save_map_record.return_value = mock_map_record
         self.mock_map_file_repository.store_map.return_value = None
 
@@ -400,15 +460,13 @@ class TestServiceMapUploadOrchestrator(TestCase):
         orchestrator = MapUploadOrchestrator(
             map_database_service=self.mock_map_database_service,
             map_file_repository=self.mock_map_file_repository,
-            map_hash_command=self.mock_map_hash_command,
-            map_hash_translator=self.mock_map_hash_translator,
+            engine_file_repository=self.mock_engine_file_repository,
             docker=self.mock_docker
         )
 
         self.assertEqual(orchestrator.map_database_service, self.mock_map_database_service)
         self.assertEqual(orchestrator.map_file_repository, self.mock_map_file_repository)
-        self.assertEqual(orchestrator.map_hash_command, self.mock_map_hash_command)
-        self.assertEqual(orchestrator.map_hash_translator, self.mock_map_hash_translator)
+        self.assertEqual(orchestrator.engine_file_repository, self.mock_engine_file_repository)
         self.assertEqual(orchestrator.docker, self.mock_docker)
 
     def test_exception_map_upload_metadata_invalid_has_correct_message(self):
