@@ -88,6 +88,7 @@ class ExceptionMapAlreadyExists(ExceptionBase):
     def __init__(self, map_hash: str):
         super().__init__()
         self.message = "Map has already been uploaded"
+        self.friendly = f"This map has already been uploaded (hash: {map_hash[:8]}...). Maps must be unique."
         self.detail.append(f'map_hash: {map_hash}')
 
 
@@ -95,4 +96,5 @@ class ExceptionMapMetadataMissing(ExceptionBase):
     def __init__(self, field: str):
         super().__init__()
         self.message = f"Map metadata missing required field: {field}"
+        self.friendly = f"The uploaded map is missing required information: {field}. Please check your map file and try again."
         self.detail.append(f'field: {field}')

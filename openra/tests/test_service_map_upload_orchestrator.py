@@ -473,6 +473,7 @@ class TestServiceMapUploadOrchestrator(TestCase):
         # Test the custom exception class
         exception = ExceptionMapUploadMetadataInvalid()
         self.assertEqual(exception.message, "Unable to parse map metadata")
+        self.assertEqual(exception.friendly, "Unable to parse map metadata from the uploaded file. Please ensure your map file contains valid metadata and try again.")
 
     def test_exception_map_upload_file_storage_failed_has_correct_message_and_details(self):
         # Test the custom exception class with error details
@@ -480,4 +481,23 @@ class TestServiceMapUploadOrchestrator(TestCase):
         exception = ExceptionMapUploadFileStorageFailed(error_message)
 
         self.assertEqual(exception.message, "Map upload failed during file storage")
+        self.assertEqual(exception.friendly, "Unable to save your map. Please try uploading again.")
         self.assertIn('error: ' + error_message, exception.detail)
+
+    def test_exception_map_already_exists_has_correct_friendly_message(self):
+        # Test the database exception class
+        map_hash = "1234567890abcdef1234567890abcdef12345678"
+        exception = ExceptionMapAlreadyExists(map_hash)
+        
+        self.assertEqual(exception.message, "Map has already been uploaded")
+        self.assertEqual(exception.friendly, f"This map has already been uploaded (hash: {map_hash[:8]}...). Maps must be unique.")
+        self.assertIn(f'map_hash: {map_hash}', exception.detail)
+
+    def test_exception_map_metadata_missing_has_correct_friendly_message(self):
+        # Test the database exception class
+        field = "title"
+        exception = ExceptionMapMetadataMissing(field)
+        
+        self.assertEqual(exception.message, f"Map metadata missing required field: {field}")
+        self.assertEqual(exception.friendly, f"The uploaded map is missing required information: {field}. Please check your map file and try again.")
+        self.assertIn(f'field: {field}', exception.detail)

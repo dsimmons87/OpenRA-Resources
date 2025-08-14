@@ -890,12 +890,10 @@ def uploadMap(request, previous_rev=0,
 
                 return HttpResponseRedirect('/maps/' + str(uploaded_map.id) + "/")
 
-            except (ExceptionMapUploadMetadataInvalid, ExceptionMapUploadFileStorageFailed) as exception:
-                error_message = exception.message
-            except (ExceptionMapAlreadyExists, ExceptionMapMetadataMissing) as exception:
-                error_message = exception.message
+            except (ExceptionMapUploadMetadataInvalid, ExceptionMapUploadFileStorageFailed, ExceptionMapAlreadyExists, ExceptionMapMetadataMissing) as exception:
+                error_message = exception.friendly
             except Exception as exception:
-                error_message = "Upload failed: " + str(exception)
+                error_message = "An internal error occurred during upload. Please try again later."
 
     template = loader.get_template('index.html')
     template_args = {

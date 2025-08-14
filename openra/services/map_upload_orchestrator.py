@@ -99,10 +99,12 @@ class ExceptionMapUploadMetadataInvalid(ExceptionBase):
     def __init__(self):
         super().__init__()
         self.message = "Unable to parse map metadata"
+        self.friendly = "Unable to parse map metadata from the uploaded file. Please ensure your map file contains valid metadata and try again."
 
 
 class ExceptionMapUploadFileStorageFailed(ExceptionBase):
     def __init__(self, error: str):
         super().__init__()
         self.message = "Map upload failed during file storage"
+        self.friendly = "Unable to save your map. Please try uploading again."
         self.detail.append('error: ' + error)
