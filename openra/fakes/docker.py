@@ -1,9 +1,9 @@
 class FakeDocker:
     """Fake Docker service for testing that doesn't require actual Docker connection."""
 
-    def __init__(self, client=None):
+    def __init__(self, client_factory=None):
         """Initialize fake Docker service."""
-        pass
+        self._client_factory = client_factory
 
     def test_docker(self):
         """Return fake Docker test result."""

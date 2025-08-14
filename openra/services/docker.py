@@ -1,17 +1,27 @@
 from os import path
 from django.conf import settings
 import re
+import docker
 from docker.client import DockerClient
+from typing import Optional, Callable
 
 from openra.classes.exceptions import ExceptionBase
 
 
 class Docker:
 
-    _client: DockerClient
+    _client: Optional[DockerClient]
+    _client_factory: Callable[[], DockerClient]
 
-    def __init__(self, client: DockerClient):
-        self._client = client
+    def __init__(self, client_factory: Callable[[], DockerClient]):
+        self._client = None
+        self._client_factory = client_factory
+
+    def _get_client(self) -> DockerClient:
+        """Lazy initialization of Docker client"""
+        if self._client is None:
+            self._client = self._client_factory()
+        return self._client
 
     def test_docker(self):
         return self._docker_run(
@@ -19,7 +29,7 @@ class Docker:
         )
 
     def extract_appimage(self, app_image_path: str, to_dir: str):
-        pattern = re.compile('^[A-z0-9\-\/\.\_]+$')
+        pattern = re.compile(r'^[A-z0-9\-\/\.\_]+$')
         if not pattern.match(app_image_path):
             raise ExceptionDockerIncompatibleAppImagePath(app_image_path, to_dir)
 
@@ -50,9 +60,10 @@ class Docker:
         return re.sub('^WARNING: Unable to sync system certificate store - https requests will fail\n', '', output)
 
     def _docker_run(self, command: str, volumes: list = [], working_dir='/'):
+        client = self._get_client()
         try:
-            output = self._client.containers.run(
-                self._get_docker_image(self._client),
+            output = client.containers.run(
+                self._get_docker_image(client),
                 command,
                 remove=True,
                 volumes=volumes,

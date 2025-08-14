@@ -18,7 +18,7 @@ class TestServiceDocker(TestCase):
             return_value=b'mock_return'
         )
 
-        docker = Docker(client_mock)
+        docker = Docker(lambda: client_mock)
 
         self.assertEquals(
             'mock_return',
@@ -45,7 +45,7 @@ class TestServiceDocker(TestCase):
             return_value=b'mock_return'
         )
 
-        docker = Docker(client_mock)
+        docker = Docker(lambda: client_mock)
 
         self.assertEquals(
             'mock_return',
@@ -74,7 +74,7 @@ class TestServiceDocker(TestCase):
     def test_extract_appimage_allows_acceptable_filenames(self):
         client_mock = Mock()
 
-        docker = Docker(client_mock)
+        docker = Docker(lambda: client_mock)
 
         client_mock.containers = Mock()
         client_mock.images = Mock()
@@ -96,7 +96,7 @@ class TestServiceDocker(TestCase):
     def test_extract_appimage_throws_exception_when_incompatible_filename_provided(self):
         client_mock = Mock()
 
-        docker = Docker(client_mock)
+        docker = Docker(lambda: client_mock)
 
         self.assertRaises(
             ExceptionDockerIncompatibleAppImagePath,
@@ -116,7 +116,7 @@ class TestServiceDocker(TestCase):
             return_value='non byte response'
         )
 
-        docker = Docker(client_mock)
+        docker = Docker(lambda: client_mock)
 
         self.assertRaises(
             ExceptionDockerNonByteResponse,
@@ -134,7 +134,7 @@ class TestServiceDocker(TestCase):
             side_effect=Exception()
         )
 
-        docker = Docker(client_mock)
+        docker = Docker(lambda: client_mock)
 
         self.assertRaises(
             ExceptionDockerExceptionResponse,
@@ -158,7 +158,7 @@ class TestServiceDocker(TestCase):
             return_value=warning + b'mock_return'
         )
 
-        docker = Docker(client_mock)
+        docker = Docker(lambda: client_mock)
 
         self.assertEquals(
             'mock_return',

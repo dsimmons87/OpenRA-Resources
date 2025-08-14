@@ -35,9 +35,7 @@ class Container(containers.DeclarativeContainer):
 
     docker = providers.Singleton(
         Docker,
-        providers.Callable(
-            docker.from_env
-        )
+        lambda: docker.from_env()
     )
 
     github = providers.Singleton(
