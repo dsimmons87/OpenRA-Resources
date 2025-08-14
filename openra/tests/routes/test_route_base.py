@@ -46,7 +46,7 @@ class TestRouteBase(TestCase):
 
     def create_old_user(self):
         return UserFactory(
-            date_joined=timezone.datetime(1996, 11, 29, 0, 0)
+            date_joined=timezone.make_aware(timezone.datetime(1996, 11, 29, 0, 0))
         )
 
     def assert_contains(self, response, contents=[],
