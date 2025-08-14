@@ -14,6 +14,7 @@ class FakeMapUploadOrchestrator:
         self.should_fail = False
         self.error_message = ""
         self.created_map = None
+        self.custom_exception = None
 
     def upload_map(self,
                    map_file_location: FileLocation,
@@ -25,6 +26,9 @@ class FakeMapUploadOrchestrator:
                    revision: int = 1,
                    previous_revision_id: int = 0) -> Maps:
         """Fake upload that returns a mock Maps instance."""
+        if self.custom_exception:
+            raise self.custom_exception
+        
         if self.should_fail:
             from openra.services.map_upload_orchestrator import ExceptionMapUploadMetadataInvalid
             raise ExceptionMapUploadMetadataInvalid()
@@ -43,3 +47,7 @@ class FakeMapUploadOrchestrator:
 
         self.created_map = fake_map
         return fake_map
+    
+    def set_upload_map_exception(self, exception: Exception):
+        """Set a custom exception to be raised by upload_map."""
+        self.custom_exception = exception

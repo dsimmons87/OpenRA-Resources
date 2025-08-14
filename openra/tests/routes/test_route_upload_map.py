@@ -241,3 +241,49 @@ class TestRouteUploadMap(TestRouteBase):
             )
         finally:
             overrides.__exit__()
+
+    def test_unexpected_exception_shows_generic_error_message(self):
+        """Test that unexpected exceptions show a generic internal error message"""
+        # Override Docker-dependent services
+        container.reset_singletons()
+        overrides = container.override_providers(
+            docker=Singleton(FakeDocker),
+            engine_file_repository=Singleton(FakeEngineFileRepository),
+            map_upload_orchestrator=Singleton(FakeMapUploadOrchestrator),
+            uploaded_file_importer=Singleton(FakeUploadedFileImporter),
+            map_file_extractor=Singleton(FakeMapFileExtractor)
+        )
+
+        try:
+            user = self.create_old_user()
+            engine = EngineFactory()
+
+            # Make the orchestrator throw an unexpected exception
+            fake_orchestrator = container.map_upload_orchestrator()
+            fake_orchestrator.set_upload_map_exception(RuntimeError("Database connection failed unexpectedly"))
+
+            response = self.post_authed({
+                'file': self.__get_sample_map_file(),
+                'parser': engine.version,
+                'info': 'Test description',
+                'policy_cc': 'cc_yes',
+                'commercial': 'com_no',
+                'adaptations': 'adapt_yes'
+            }, user)
+
+            # Should show generic error message, not the technical details
+            self.assert_contains(
+                response,
+                contents=[
+                    'An internal error occurred during upload. Please try again later.',
+                    'Uploading Map'
+                ],
+                title='Uploading Map'
+            )
+
+            # Should NOT contain the technical error details
+            self.assertNotIn('Database connection failed unexpectedly', response.content.decode())
+            self.assertNotIn('RuntimeError', response.content.decode())
+
+        finally:
+            overrides.__exit__()
