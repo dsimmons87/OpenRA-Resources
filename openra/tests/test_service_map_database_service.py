@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 from django.contrib.auth.models import User
 from django.utils import timezone
 
-from openra.models import Maps
+from openra.models import Maps, MapCategories
 from openra.classes.map_hash import MapHash
 from openra.services.map_database_service import (MapDatabaseService, ExceptionMapAlreadyExists,
                                                   ExceptionMapMetadataMissing)
@@ -301,3 +301,87 @@ class TestServiceMapDatabaseService(TestCase):
         for mod in unknown_mods:
             if mod is not None:  # _is_known_mod expects string
                 self.assertFalse(self.service._is_known_mod(mod))
+
+    def test_process_categories_creates_new_categories(self):
+        # Test category processing with new category names
+        category_names = ['Conquest', 'Survival']
+        
+        result = self.service._process_categories(category_names)
+        
+        # Should create MapCategories records and return formatted string
+        conquest_cat = MapCategories.objects.filter(category_name='Conquest').first()
+        survival_cat = MapCategories.objects.filter(category_name='Survival').first()
+        
+        self.assertIsNotNone(conquest_cat)
+        self.assertIsNotNone(survival_cat)
+        
+        expected = f'_{conquest_cat.id}_,_{survival_cat.id}_'
+        self.assertEqual(result, expected)
+
+    def test_process_categories_reuses_existing_categories(self):
+        # Create existing categories
+        existing_cat = MapCategories.objects.create(
+            category_name='Existing Category',
+            posted=timezone.now()
+        )
+        
+        category_names = ['Existing Category', 'New Category']
+        result = self.service._process_categories(category_names)
+        
+        # Should reuse existing and create new
+        new_cat = MapCategories.objects.filter(category_name='New Category').first()
+        self.assertIsNotNone(new_cat)
+        
+        expected = f'_{existing_cat.id}_,_{new_cat.id}_'
+        self.assertEqual(result, expected)
+
+    def test_process_categories_handles_string_input(self):
+        # Test with comma-separated string input
+        category_string = 'Category1, Category2, Category3'
+        
+        result = self.service._process_categories(category_string)
+        
+        # Should parse string and create categories
+        cat1 = MapCategories.objects.filter(category_name='Category1').first()
+        cat2 = MapCategories.objects.filter(category_name='Category2').first()
+        cat3 = MapCategories.objects.filter(category_name='Category3').first()
+        
+        self.assertIsNotNone(cat1)
+        self.assertIsNotNone(cat2)
+        self.assertIsNotNone(cat3)
+        
+        expected = f'_{cat1.id}_,_{cat2.id}_,_{cat3.id}_'
+        self.assertEqual(result, expected)
+
+    def test_process_categories_handles_empty_input(self):
+        # Test with empty/None inputs
+        self.assertEqual(self.service._process_categories([]), '')
+        self.assertEqual(self.service._process_categories(''), '')
+        self.assertEqual(self.service._process_categories(None), '')
+        self.assertEqual(self.service._process_categories(['', ' ', None]), '')
+
+    def test_save_map_record_processes_categories_correctly(self):
+        # Test that save_map_record properly processes categories
+        metadata = self.valid_metadata.copy()
+        metadata['categories'] = ['Test Category', 'Another Category']
+        
+        map_hash = MapHash(self.get_unique_hash())
+        
+        result = self.service.save_map_record(
+            map_hash=map_hash,
+            metadata=metadata,
+            user=self.user,
+            parser='release-20231010',
+            description='Test description',
+            policy=self.valid_policy
+        )
+        
+        # Check that categories were processed and saved correctly
+        self.assertTrue(result.categories.startswith('_'))
+        self.assertTrue('_' in result.categories)
+        
+        # Verify categories were created in database
+        test_cat = MapCategories.objects.filter(category_name='Test Category').first()
+        another_cat = MapCategories.objects.filter(category_name='Another Category').first()
+        self.assertIsNotNone(test_cat)
+        self.assertIsNotNone(another_cat)
