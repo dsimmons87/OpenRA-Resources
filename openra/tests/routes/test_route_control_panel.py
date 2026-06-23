@@ -106,7 +106,7 @@ class TestRouteControlPanel(TestRouteBase):
         self.assert_contains(
             view,
             [
-                '/panel/page/2/'
+                '?page=2'
             ]
         )
 
@@ -125,6 +125,12 @@ class TestRouteControlPanel(TestRouteBase):
                     map.title,
                 ]
             )
+
+    def test_route_panel_page_redirect(self):
+        """Legacy /panel/page/<n>/ redirects to /panel/?page=<n>"""
+        response = self.get_authed(route='/panel/page/2/')
+        self.assertEqual(302, response.status_code)
+        self.assertIn('page=2', response.url)
 
     def test_route_can_show_later_pages(self):
         user = UserFactory()
@@ -150,14 +156,14 @@ class TestRouteControlPanel(TestRouteBase):
             shown.append(map)
 
         view = self.get_authed(
-            route='/panel/page/2/',
+            route='/panel/?page=2',
             user=user,
         )
 
         self.assert_contains(
             view,
             [
-                '/panel/page/1/'
+                '?page=1'
             ]
         )
 

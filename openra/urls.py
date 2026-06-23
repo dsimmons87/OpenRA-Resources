@@ -87,7 +87,7 @@ urlpatterns = [
     url(r'^search/(?P<search_query>.+?)/?$', views.search, name='search'),
 
     url(r'^panel/?$', views.ControlPanel, name='ControlPanel'),
-    url(r'^panel/page/(?P<page>\d+)/?$', views.ControlPanel, name='maps_paged'),
+    url(r'^panel/page/(?P<page>\d+)/?$', views.panel_page_redirect, name='maps_paged'),
 
     url(r'^faq/?$', views.faq, name='faq'),
 
